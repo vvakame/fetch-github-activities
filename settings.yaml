@@ -1,0 +1,6 @@
+author: vvakame
+startDay: Saturday # Friday is end of work day!
+
+ignoreOrganizations:
+  - TechBooster
+  - techbookfest
