@@ -15,6 +15,8 @@ if (!authToken) {
 type Settings = {
   author: string;
   startDay?: string;
+  startDate?: string;
+  endDate?: string;
   ignoreOrganizations?: string[];
 };
 
@@ -30,38 +32,15 @@ if (!author) {
 }
 const ignoreOrgs = settings.ignoreOrganizations || [];
 
-let start: Date;
-let end: Date;
-{
-  const dayIndices = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ].map((v) => v.toLowerCase());
-  let day = dayIndices.indexOf(
-    (settings.startDay || dayIndices[0]).toLowerCase()
-  );
-  if (day === -1) {
-    day = 0;
-  }
-  end = new Date();
-  end = dateFns.setDay(end, day);
-  end = dateFns.setHours(end, 0);
-  end = dateFns.setMinutes(end, 0);
-  end = dateFns.setSeconds(end, 0);
-  end = dateFns.setMilliseconds(end, 0);
-  end = dateFns.setHours(end, 0);
-  if (Date.now() < end.getTime()) {
-    end = dateFns.addDays(end, -7);
-  }
+let [start, end] = calcTerms(settings.startDay);
 
-  start = dateFns.addDays(end, -7);
-  end = dateFns.addMilliseconds(end, -1);
+if (settings.startDate) {
+  start = new Date(settings.startDate);
 }
+if (settings.endDate) {
+  end = new Date(settings.endDate);
+}
+
 console.log("start", dateFns.format(start, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
 console.log("end", dateFns.format(end, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"));
 console.log();
@@ -139,3 +118,34 @@ async function exec() {
 }
 
 exec().catch((err) => console.error(err));
+
+function calcTerms(startDay?: string): [Date, Date] {
+  const dayIndices = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ].map((v) => v.toLowerCase());
+  let day = dayIndices.indexOf((startDay || dayIndices[0]).toLowerCase());
+  if (day === -1) {
+    day = 0;
+  }
+  let end = new Date();
+  end = dateFns.setDay(end, day);
+  end = dateFns.setHours(end, 0);
+  end = dateFns.setMinutes(end, 0);
+  end = dateFns.setSeconds(end, 0);
+  end = dateFns.setMilliseconds(end, 0);
+  end = dateFns.setHours(end, 0);
+  if (Date.now() < end.getTime()) {
+    end = dateFns.addDays(end, -7);
+  }
+
+  let start = dateFns.addDays(end, -7);
+  end = dateFns.addMilliseconds(end, -1);
+
+  return [start, end];
+}
