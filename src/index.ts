@@ -47,8 +47,12 @@ console.log();
 
 // https://developer.github.com/v4/explorer/
 const query = `
-{
-    search(first: 100, query: "author:${author}", type: ISSUE) {
+query FetchGitHubAcitivityQuery ($query: String!, $after: String) {
+    search(first: 100, after: $after, query: $query, type: ISSUE) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
         __typename
         ... on Issue {
@@ -90,19 +94,10 @@ const query = `
   }
 `;
 
-async function exec() {
-  const resp = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `bearer ${authToken}`,
-    },
-    body: `{"query":${JSON.stringify(query)}}`,
-  });
-  if (resp.status !== 200) {
-    throw new Error(`error, ${resp.status} ${await resp.text()}`);
-  }
-  const data = (await resp.json()) as any;
+exec().catch((err) => console.error(err));
 
+async function exec() {
+  const data = await executeQuery();
   const text = data.data.search.nodes
     .filter((v: any) => ignoreOrgs.indexOf(v.repository.owner.login) === -1)
     .filter((v: any) => {
@@ -117,7 +112,36 @@ async function exec() {
   console.log(text);
 }
 
-exec().catch((err) => console.error(err));
+async function executeQuery(after?: string): Promise<any> {
+  const createdFrom = dateFns.format(start, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+  const createdTo = dateFns.format(end, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+  const variables = {
+    after: after,
+    query: `author:${settings.author} created:${createdFrom}..${createdTo}`,
+  };
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `bearer ${authToken}`,
+    },
+    body: `{"query":${JSON.stringify(query)},"variables":${JSON.stringify(
+      variables
+    )}}`,
+  });
+  if (resp.status !== 200) {
+    throw new Error(`error, ${resp.status} ${await resp.text()}`);
+  }
+  const data = (await resp.json()) as any;
+  if (data.data.search.pageInfo.hasNextPage) {
+    const next = await executeQuery(data.data.search.pageInfo.endCursor);
+    data.data.search.pageInfo = next.data.search.pageInfo;
+    data.data.search.nodes = [
+      ...data.data.search.nodes,
+      ...next.data.search.nodes,
+    ];
+  }
+  return data;
+}
 
 function calcTerms(startDay?: string): [Date, Date] {
   const dayIndices = [
